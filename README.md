@@ -1,4 +1,4 @@
-# DevBench GFx 0.1.1
+# DevBench GFx 0.2.0
 
 A developer tool for [DevBench](https://www.nexusmods.com/skyrimspecialedition/mods/181326). It lets an agent or script read, set and call anything inside an open Scaleform menu, such as RaceMenu's sliders. Without it, DevBench can send keys to a menu but cannot see what the menu holds.
 
@@ -23,7 +23,15 @@ bash tools/devbench-cli.sh tool menu '{"action":"invoke","name":"gfx","op":"set"
 bash tools/devbench-cli.sh tool menu '{"action":"invoke","name":"gfx","op":"call","menu":"RaceSex Menu","path":"_global.gfx.io.GameDelegate.call","args":["PlaySound",["UIMenuOK"]]}'
 ```
 
-`get` takes `depth` (default 2, maximum 8) and `limit` (array items, default 500). Results are capped at 20,000 values.
+`get` takes `depth` (default 2, maximum 8) and `limit` (array items, default 500). Results are capped at 20,000 values. A cut result returns `"truncated": true`.
+
+`call` arguments and `set` values can be JSON objects, for handlers that take an event, such as `{"index":13}`.
+
+`batch` runs a list of `get`, `set` and `call` steps in one UI task, at most 64, and stops at the first failure with `failedIndex`:
+
+```bash
+bash tools/devbench-cli.sh tool menu '{"action":"invoke","name":"gfx","op":"batch","menu":"RaceSex Menu","ops":[{"op":"set","path":"_root.Some.value","value":1},{"op":"call","path":"_root.Some.requestUpdate"}]}'
+```
 
 Methods appear as `{}` in `get` output, because this Scaleform version has no function type.
 

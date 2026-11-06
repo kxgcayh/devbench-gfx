@@ -13,17 +13,25 @@ namespace
     constexpr int kMaxDepth = 8;
     constexpr std::uint32_t kDefaultLimit = 500;
     constexpr int kMaxNodes = 20000;  // display objects link back to parents, so depth alone is not a budget
+    constexpr std::size_t kMaxBatch = 64;
     constexpr auto kUiTimeout = 3s;
+
+    struct Budget
+    {
+        int nodes = 0;
+        bool truncated = false;
+    };
 
     json Error(const std::string& a_message)
     {
         return { { "ok", false }, { "error", a_message } };
     }
 
-    json ToJson(const RE::GFxValue& a_value, int a_depth, std::uint32_t a_limit, int& a_nodes)
+    json ToJson(const RE::GFxValue& a_value, int a_depth, std::uint32_t a_limit, Budget& a_budget)
     {
         using Type = RE::GFxValue::ValueType;
-        if (++a_nodes > kMaxNodes) {
+        if (++a_budget.nodes > kMaxNodes) {
+            a_budget.truncated = true;
             return "<node limit>";
         }
         switch (a_value.GetType()) {
@@ -39,11 +47,12 @@ namespace
                 if (a_depth <= 0) {
                     return std::format("<array {}>", size);
                 }
+                a_budget.truncated |= size > a_limit;
                 json out = json::array();
                 for (std::uint32_t i = 0; i < size && i < a_limit; ++i) {
                     RE::GFxValue item;
                     a_value.GetElement(i, &item);
-                    out.push_back(ToJson(item, a_depth - 1, a_limit, a_nodes));
+                    out.push_back(ToJson(item, a_depth - 1, a_limit, a_budget));
                 }
                 return out;
             }
@@ -56,7 +65,7 @@ namespace
                 json out = json::object();
                 // This Scaleform has no function type: methods arrive as objects and print as {}.
                 a_value.VisitMembers([&](const char* a_name, const RE::GFxValue& a_member) {
-                    out[a_name] = ToJson(a_member, a_depth - 1, a_limit, a_nodes);
+                    out[a_name] = ToJson(a_member, a_depth - 1, a_limit, a_budget);
                 });
                 return out;
             }
@@ -79,6 +88,13 @@ namespace
                 RE::GFxValue element;
                 FromJson(a_movie, item, element);
                 a_out.PushBack(element);
+            }
+        } else if (a_value.is_object()) {
+            a_movie->CreateObject(&a_out);
+            for (const auto& [name, item] : a_value.items()) {
+                RE::GFxValue member;
+                FromJson(a_movie, item, member);
+                a_out.SetMember(name.c_str(), member);
             }
         } else {
             a_out.SetNull();
@@ -114,44 +130,36 @@ namespace
         return std::nullopt;
     }
 
-    json Run(const json& a_args)
+    json RunOne(RE::GFxMovieView* a_movie, const json& a_args)
     {
         const auto op = a_args.value("op", std::string{});
-        const auto menuName = a_args.value("menu", std::string{});
         const auto segs = SplitPath(a_args.value("path", std::string{}));
         if (op != "get" && op != "set" && op != "call") {
-            return Error("op must be get, set or call");
+            return Error("op must be get, set, call or batch");
         }
-        if (menuName.empty() || segs.empty()) {
-            return Error("menu and path are required");
+        if (segs.empty()) {
+            return Error("path is required");
         }
-
-        auto* ui = RE::UI::GetSingleton();
-        if (!ui) {
-            return Error("UI not ready");
-        }
-        const auto menu = ui->GetMenu(menuName);
-        if (!menu || !menu->uiMovie) {
-            return Error("menu not open: " + menuName);
-        }
-        auto* movie = menu->uiMovie.get();
-        int nodes = 0;
+        Budget budget;
 
         if (op == "get") {
             RE::GFxValue value;
-            if (const auto error = Resolve(movie, segs, segs.size(), value)) {
+            if (const auto error = Resolve(a_movie, segs, segs.size(), value)) {
                 return Error(*error);
             }
             const int depth = std::clamp(a_args.value("depth", kDefaultDepth), 0, kMaxDepth);
             const auto limit = a_args.value("limit", kDefaultLimit);
-            return { { "ok", true }, { "value", ToJson(value, depth, limit, nodes) }, { "nodes", nodes } };
+            json result = { { "ok", true }, { "value", ToJson(value, depth, limit, budget) } };
+            result["nodes"] = budget.nodes;
+            result["truncated"] = budget.truncated;
+            return result;
         }
 
         if (segs.size() < 2) {
             return Error("set and call need a path with at least two segments");
         }
         RE::GFxValue parent;
-        if (const auto error = Resolve(movie, segs, segs.size() - 1, parent)) {
+        if (const auto error = Resolve(a_movie, segs, segs.size() - 1, parent)) {
             return Error(*error);
         }
         if (!parent.IsObject()) {
@@ -164,7 +172,7 @@ namespace
                 return Error("set needs a value");
             }
             RE::GFxValue value;
-            FromJson(movie, a_args["value"], value);
+            FromJson(a_movie, a_args["value"], value);
             const bool done = parent.IsArray() && IsIndex(leaf) ?
                                   parent.SetElement(static_cast<std::uint32_t>(std::stoul(leaf)), value) :
                                   parent.SetMember(leaf.c_str(), value);
@@ -173,13 +181,49 @@ namespace
 
         std::vector<RE::GFxValue> args;
         for (const auto& arg : a_args.value("args", json::array())) {
-            FromJson(movie, arg, args.emplace_back());
+            FromJson(a_movie, arg, args.emplace_back());
         }
         RE::GFxValue result;
         if (!parent.Invoke(leaf.c_str(), &result, args.data(), args.size())) {
             return Error("call failed: " + leaf);
         }
-        return { { "ok", true }, { "value", ToJson(result, kDefaultDepth, kDefaultLimit, nodes) } };
+        return { { "ok", true }, { "value", ToJson(result, kDefaultDepth, kDefaultLimit, budget) } };
+    }
+
+    json Run(const json& a_args)
+    {
+        const auto menuName = a_args.value("menu", std::string{});
+        if (menuName.empty()) {
+            return Error("menu is required");
+        }
+        auto* ui = RE::UI::GetSingleton();
+        if (!ui) {
+            return Error("UI not ready");
+        }
+        const auto menu = ui->GetMenu(menuName);
+        if (!menu || !menu->uiMovie) {
+            return Error("menu not open: " + menuName);
+        }
+        auto* movie = menu->uiMovie.get();
+
+        if (a_args.value("op", std::string{}) != "batch") {
+            return RunOne(movie, a_args);
+        }
+
+        // One UI task, so the steps cannot interleave with a frame. Stops at the first failure.
+        const auto ops = a_args.value("ops", json::array());
+        if (ops.empty() || ops.size() > kMaxBatch) {
+            return Error(std::format("batch needs 1 to {} ops", kMaxBatch));
+        }
+        json results = json::array();
+        for (const auto& op : ops) {
+            results.push_back(RunOne(movie, op));
+            if (!results.back().value("ok", false)) {
+                return { { "ok", false }, { "error", results.back().value("error", std::string{}) },
+                    { "failedIndex", results.size() - 1 }, { "results", results } };
+            }
+        }
+        return { { "ok", true }, { "results", results } };
     }
 
     // DevBench calls this on its listener thread, and Scaleform belongs to the UI thread.
@@ -207,7 +251,7 @@ namespace
         a_write(a_sink, text.c_str());
     }
 
-    constexpr auto kDescriptor = R"({"description":"Read, set or call anything in an open Scaleform menu. Args: op (get|set|call), menu (for example 'RaceSex Menu'), path (dotted, from _root or _global; numbers index arrays), plus depth and limit for get, value for set, args for call."})";
+    constexpr auto kDescriptor = R"({"description":"Read, set or call anything in an open Scaleform menu. Args: op (get|set|call|batch), menu (for example 'RaceSex Menu'), path (dotted, from _root or _global; numbers index arrays), plus depth and limit for get, value for set, args for call (objects allowed), ops for batch (a list of get, set or call, run in one UI task, stopping at the first failure)."})";
 
     void OnMessage(SKSE::MessagingInterface::Message* a_msg)
     {
