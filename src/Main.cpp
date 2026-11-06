@@ -1,6 +1,7 @@
 #include "DevBenchAPI.h"
 #include "Path.h"
 
+#include <atomic>
 #include <chrono>
 #include <future>
 #include <memory>
@@ -14,6 +15,9 @@ namespace
     constexpr std::uint32_t kDefaultLimit = 500;
     constexpr int kMaxNodes = 20000;  // display objects link back to parents, so depth alone is not a budget
     constexpr std::size_t kMaxBatch = 64;
+    constexpr int kPending = 0;
+    constexpr int kRunning = 1;
+    constexpr int kCancelled = 2;
     constexpr auto kUiTimeout = 3s;
 
     struct Budget
@@ -41,6 +45,10 @@ namespace
             return a_value.GetNumber();
         case Type::kString:
             return a_value.GetString() ? a_value.GetString() : "";
+        case Type::kStringW:
+            return a_value.GetStringW() ? SKSE::stl::utf16_to_utf8(a_value.GetStringW()).value_or("") : "";
+        case Type::kUndefined:
+            return "<undefined>";
         case Type::kArray:
             {
                 const auto size = a_value.GetArraySize();
@@ -70,7 +78,7 @@ namespace
                 return out;
             }
         default:
-            return nullptr;  // undefined and null
+            return nullptr;
         }
     }
 
@@ -103,10 +111,6 @@ namespace
 
     bool Step(const RE::GFxValue& a_from, const std::string& a_seg, RE::GFxValue& a_to)
     {
-        // GFxValue only asserts its type, so a member lookup on a number or string dereferences garbage in release.
-        if (!a_from.IsObject()) {
-            return false;
-        }
         if (a_from.IsArray() && IsIndex(a_seg)) {
             return a_from.GetElement(static_cast<std::uint32_t>(std::stoul(a_seg)), &a_to);
         }
@@ -117,10 +121,14 @@ namespace
     std::optional<std::string> Resolve(RE::GFxMovieView* a_movie, const std::vector<std::string>& a_segs,
         std::size_t a_count, RE::GFxValue& a_out)
     {
+        // GFxValue only asserts its type, so every step checks IsObject: a member lookup on a number crashes in release.
         if (!a_movie->GetVariable(&a_out, a_segs[0].c_str())) {
             return "root not found: " + a_segs[0];
         }
         for (std::size_t i = 1; i < a_count; ++i) {
+            if (!a_out.IsObject()) {
+                return "not an object: " + a_segs[i - 1];
+            }
             RE::GFxValue next;
             if (!Step(a_out, a_segs[i], next)) {
                 return "member not found: " + a_segs[i];
@@ -134,6 +142,9 @@ namespace
     {
         const auto op = a_args.value("op", std::string{});
         const auto segs = SplitPath(a_args.value("path", std::string{}));
+        if (op == "batch") {
+            return Error("batch cannot be nested");
+        }
         if (op != "get" && op != "set" && op != "call") {
             return Error("op must be get, set, call or batch");
         }
@@ -235,9 +246,15 @@ namespace
             return;
         }
 
+        // pending -> running in the task, pending -> cancelled on timeout, so a late task cannot act unseen.
+        auto state = std::make_shared<std::atomic<int>>(kPending);
         auto done = std::make_shared<std::promise<std::string>>();
         auto result = done->get_future();
-        SKSE::GetTaskInterface()->AddUITask([done, args = std::move(args)] {
+        SKSE::GetTaskInterface()->AddUITask([state, done, args = std::move(args)] {
+            int expected = kPending;
+            if (!state->compare_exchange_strong(expected, kRunning)) {
+                return;
+            }
             try {
                 done->set_value(Run(args).dump(-1, ' ', false, json::error_handler_t::replace));
             } catch (const std::exception& e) {
@@ -245,13 +262,20 @@ namespace
             }
         });
 
-        const auto text = result.wait_for(kUiTimeout) == std::future_status::ready ?
-                              result.get() :
-                              Error("timed out waiting for the UI thread").dump();
+        std::string text;
+        if (result.wait_for(kUiTimeout) == std::future_status::ready) {
+            text = result.get();
+        } else {
+            int expected = kPending;
+            text = Error(state->compare_exchange_strong(expected, kCancelled) ?
+                             "timed out waiting for the UI thread; cancelled" :
+                             "timed out while running; it may still finish")
+                       .dump();
+        }
         a_write(a_sink, text.c_str());
     }
 
-    constexpr auto kDescriptor = R"({"description":"Read, set or call anything in an open Scaleform menu. Args: op (get|set|call|batch), menu (for example 'RaceSex Menu'), path (dotted, from _root or _global; numbers index arrays), plus depth and limit for get, value for set, args for call (objects allowed), ops for batch (a list of get, set or call, run in one UI task, stopping at the first failure)."})";
+    constexpr auto kDescriptor = R"({"description":"Read, set or call anything in an open Scaleform menu. Numbers in a path index arrays. batch runs ops in one UI task and stops at the first failure.","inputSchema":{"type":"object","required":["op","menu"],"properties":{"op":{"type":"string","enum":["get","set","call","batch"]},"menu":{"type":"string","description":"Open menu name, for example RaceSex Menu"},"path":{"type":"string","description":"Dotted path from _root or _global"},"depth":{"type":"integer","description":"get: default 2, maximum 8"},"limit":{"type":"integer","description":"get: array items, default 500"},"value":{"description":"set: the new value"},"args":{"type":"array","description":"call: arguments; objects allowed"},"ops":{"type":"array","description":"batch: up to 64 steps of op, path, value, args, depth, limit","items":{"type":"object"}}}}})";
 
     void OnMessage(SKSE::MessagingInterface::Message* a_msg)
     {
@@ -261,11 +285,9 @@ namespace
         auto* api = DevBenchAPI::GetDevBenchInterface001();
         if (!api) {
             logger::warn("DevBench not found; nothing registered");
-        } else if (api->GetBuildNumber() < 10500) {
-            logger::warn("DevBench {} is older than 1.5.0; nothing registered", api->GetBuildNumber());
         } else {
-            api->RegisterToolExtension("menu", "gfx", kDescriptor, &Handle, nullptr);
-            logger::info("registered menu invoke name=gfx on DevBench {}", api->GetBuildNumber());
+            api->RegisterTool("gfx", kDescriptor, &Handle, nullptr);
+            logger::info("registered tool gfx on DevBench {}", api->GetBuildNumber());
         }
     }
 }
