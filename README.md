@@ -37,7 +37,7 @@ See `BUILDING.md`.
 
 ## Verification Status
 
-Tested in game on AE 1.7.104 under CrossOver with DevBench 1.32.0: `get` on the Main Menu and RaceMenu, `set`, and `call` for a race change and a slider, confirmed from the engine. Not tested on SE, VR or Windows.
+Tested in game on AE 1.7.104 under CrossOver with DevBench 1.32.0: `get` on the Main Menu, RaceMenu, HUD, Console and third-party menus, `set`, `call`, nine bad-input cases, and a full character creation from NEW to the end of RaceMenu. Not tested on SE, VR or Windows.
 
 ## Credits and Permissions
 
