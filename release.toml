@@ -1,0 +1,14 @@
+name = "DevBenchGFx"
+display_name = "DevBench GFx"
+version = "0.1.0"
+description = "Developer tool: lets DevBench read, set and call anything in an open Scaleform menu."
+
+[files]
+"SKSE/Plugins/DevBenchGFx.dll" = "build/DevBenchGFx.dll"
+"LICENSE" = "LICENSE"
+
+[nexus]
+mod_id = 0
+file_id = 0
+category = "main"
+mod_category = 39  # Utilities
