@@ -56,7 +56,6 @@ Install with a mod manager. It needs no load order position.
 ## Known Issues
 
 - `set` and `call` act on the live menu with no safety net. A wrong call can leave a menu in a bad state, so use it on a test character.
-- Do not use 0.1.0: a path through a number or string crashes the game. Fixed in 0.1.1.
 - DevBench adds an `unknown key(s)` warning to every response, because its `menu` tool checks only its own arguments. It is harmless.
 - Methods appear as `{}` in `get` output, because this Scaleform version has no function type.
 - `member not found` is also returned when the path runs through a number or string.
