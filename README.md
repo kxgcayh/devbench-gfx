@@ -1,4 +1,4 @@
-# DevBench GFx 0.3.0
+# DevBench GFx 0.3.1
 
 A developer tool for [DevBench](https://www.nexusmods.com/skyrimspecialedition/mods/181326). It lets an agent or script read, set and call anything inside an open Scaleform menu, so RaceMenu, the HUD and other mods' menus can be tested without touching the screen.
 
@@ -67,7 +67,7 @@ See `BUILDING.md`.
 
 ## Verification Status
 
-Tested in game on AE 1.7.104 under CrossOver on macOS, with DevBench 1.32.0 and a RaceMenu Untarnished UI patched menu:
+Tested in game on AE 1.7.104 under CrossOver on macOS, with DevBench 1.32.0 and RaceMenu beta v0.5.b6 with a patched Untarnished UI menu:
 
 - `get` on the Main Menu, RaceMenu, HUD, Console, Fader, Cursor and TrueHUD menus. The 8,551-value RaceMenu list read in 32 ms.
 - `set`, `call` and `batch`, confirmed from the engine: race change, slider value and name.

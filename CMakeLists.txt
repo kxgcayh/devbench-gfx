@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(DevBenchGFx VERSION 0.3.0 LANGUAGES CXX)
+project(DevBenchGFx VERSION 0.3.1 LANGUAGES CXX)
 
 find_package(CommonLibSSE CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)

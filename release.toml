@@ -1,6 +1,6 @@
 name = "DevBenchGFx"
 display_name = "DevBench GFx"
-version = "0.3.0"
+version = "0.3.1"
 description = "Developer tool: lets DevBench read, set and call anything in an open Scaleform menu."
 
 [files]
