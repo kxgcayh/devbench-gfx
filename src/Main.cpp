@@ -87,6 +87,10 @@ namespace
 
     bool Step(const RE::GFxValue& a_from, const std::string& a_seg, RE::GFxValue& a_to)
     {
+        // GFxValue only asserts its type, so a member lookup on a number or string dereferences garbage in release.
+        if (!a_from.IsObject()) {
+            return false;
+        }
         if (a_from.IsArray() && IsIndex(a_seg)) {
             return a_from.GetElement(static_cast<std::uint32_t>(std::stoul(a_seg)), &a_to);
         }
@@ -149,6 +153,9 @@ namespace
         RE::GFxValue parent;
         if (const auto error = Resolve(movie, segs, segs.size() - 1, parent)) {
             return Error(*error);
+        }
+        if (!parent.IsObject()) {
+            return Error("not an object: " + segs[segs.size() - 2]);
         }
         const auto& leaf = segs.back();
 

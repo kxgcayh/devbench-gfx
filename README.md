@@ -1,4 +1,4 @@
-# DevBench GFx 0.1.0
+# DevBench GFx 0.1.1
 
 A developer tool for [DevBench](https://www.nexusmods.com/skyrimspecialedition/mods/181326). It lets an agent or script read, set and call anything inside an open Scaleform menu, such as RaceMenu's sliders. Without it, DevBench can send keys to a menu but cannot see what the menu holds.
 
