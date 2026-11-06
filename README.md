@@ -86,7 +86,7 @@ Not tested on Windows, SE or VR.
 - [alandtse](https://github.com/alandtse) for [DevBench](https://github.com/alandtse/devbench), which this mod extends and needs. Copyright (c) 2026 Alan Tse and devbench contributors.
 - `src/DevBenchAPI.h` and `src/DevBenchAPI.cpp` are DevBench's cross-plugin API, vendored under their MIT licence (`src/DevBenchAPI.LICENSE.txt`). DevBench itself is GPL-3.0 and no other part of it is included.
 - Built with [CommonLibSSE-NG](https://github.com/alandtse/CommonLibSSE-NG).
-- [expired6978](https://www.nexusmods.com/skyrimspecialedition/users/2439220) for RaceMenu, whose menu these examples use.
+- expired6978 for RaceMenu, whose menu these examples use.
 
 ## License
 
