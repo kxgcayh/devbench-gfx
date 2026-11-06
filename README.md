@@ -87,4 +87,4 @@ Not tested on Windows, SE or VR.
 
 ## License
 
-MIT, see `LICENSE`.
+GPL-3.0-or-later, see `LICENSE`. The vendored `src/DevBenchAPI.*` files stay under their MIT licence.
