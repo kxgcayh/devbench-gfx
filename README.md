@@ -37,7 +37,7 @@ See `BUILDING.md`.
 
 ## Verification Status
 
-Built and checked statically: the DLL exports the SKSE entry points. Not yet run in game.
+Tested in game on AE 1.7.104 under CrossOver with DevBench 1.32.0: `get` on the Main Menu and RaceMenu, `set`, and `call` for a race change and a slider, confirmed from the engine. Not tested on SE, VR or Windows.
 
 ## Credits and Permissions
 
