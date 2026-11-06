@@ -6,6 +6,7 @@ description = "Developer tool: lets DevBench read, set and call anything in an o
 [files]
 "SKSE/Plugins/DevBenchGFx.dll" = "build/DevBenchGFx.dll"
 "LICENSE" = "LICENSE"
+"THIRD-PARTY-NOTICES.txt" = "THIRD-PARTY-NOTICES.txt"
 
 [nexus]
 mod_id = 0
