@@ -32,22 +32,22 @@ It adds a `gfx` tool to DevBench, with four operations. `path` is dotted, starts
 Read RaceMenu's races and sliders:
 
 ```bash
-bash tools/devbench-cli.sh tool gfx '{"op":"get","menu":"RaceSex Menu","path":"_root.RaceSexMenuBaseInstance.RaceSexPanelsInstance.itemList.entryList","depth":2,"limit":800}'
+curl -X POST http://127.0.0.1:8920/api/tool/gfx -H "Content-Type: application/json" -d '{"op":"get","menu":"RaceSex Menu","path":"_root.RaceSexMenuBaseInstance.RaceSexPanelsInstance.itemList.entryList","depth":2,"limit":800}'
 ```
 
 Press a RaceMenu list entry through the menu's own handler:
 
 ```bash
-bash tools/devbench-cli.sh tool gfx '{"op":"call","menu":"RaceSex Menu","path":"_root.RaceSexMenuBaseInstance.RaceSexPanelsInstance.onItemPress","args":[{"index":13}]}'
+curl -X POST http://127.0.0.1:8920/api/tool/gfx -H "Content-Type: application/json" -d '{"op":"call","menu":"RaceSex Menu","path":"_root.RaceSexMenuBaseInstance.RaceSexPanelsInstance.onItemPress","args":[{"index":13}]}'
 ```
 
 Set a slider, commit it and refresh the list in one step:
 
 ```bash
-bash tools/devbench-cli.sh tool gfx '{"op":"batch","menu":"RaceSex Menu","ops":[{"op":"set","path":"_root.RaceSexMenuBaseInstance.RaceSexPanelsInstance.itemList.entryList.71.position","value":0.5},{"op":"call","path":"_global.gfx.io.GameDelegate.call","args":["ChangeWeight",[0.5,2]]},{"op":"call","path":"_root.RaceSexMenuBaseInstance.RaceSexPanelsInstance.itemList.requestUpdate"}]}'
+curl -X POST http://127.0.0.1:8920/api/tool/gfx -H "Content-Type: application/json" -d '{"op":"batch","menu":"RaceSex Menu","ops":[{"op":"set","path":"_root.RaceSexMenuBaseInstance.RaceSexPanelsInstance.itemList.entryList.71.position","value":0.5},{"op":"call","path":"_global.gfx.io.GameDelegate.call","args":["ChangeWeight",[0.5,2]]},{"op":"call","path":"_root.RaceSexMenuBaseInstance.RaceSexPanelsInstance.itemList.requestUpdate"}]}'
 ```
 
-Entry indexes change with your load order, so read the list first.
+Entry indexes change with your load order, so read the list first. Port 8920 is DevBench's default on SE and AE. DevBench's MCP server exposes the same tool.
 
 ## Install
 
