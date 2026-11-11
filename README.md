@@ -1,6 +1,6 @@
 # DevBench GFx 0.3.1
 
-**Archived.** This tool is now part of the `devbench` repository, [kxgcayh/devbench](https://github.com/kxgcayh/devbench), where the same code lives in `src/Gfx.cpp`. This repository is kept only for its history.
+**Archived.** This tool is now part of DevBench: it was merged into [alandtse/devbench](https://github.com/alandtse/devbench) in [pull request #158](https://github.com/alandtse/devbench/pull/158), and the code lives in `src/Gfx.cpp` there and in the fork [kxgcayh/devbench](https://github.com/kxgcayh/devbench). This repository is kept only for its history.
 
 A developer tool for [DevBench](https://www.nexusmods.com/skyrimspecialedition/mods/181326). It lets an agent or script read, set and call anything inside an open Scaleform menu, so RaceMenu, the HUD and other mods' menus can be tested without touching the screen.
 
